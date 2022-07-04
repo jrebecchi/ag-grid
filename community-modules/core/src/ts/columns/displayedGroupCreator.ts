@@ -147,23 +147,34 @@ export class DisplayedGroupCreator extends BeanStub {
         const result: ProvidedColumnGroup[] = [];
         let found = false;
 
-        const recursePath = (columnTree: IProvidedColumn[], dept: number): void => {
-            for (let i = 0; i < columnTree.length; i++) {
-                // quit the search, so 'result' is kept with the found result
-                if (found) { return; }
+        interface Node {
+            column: IProvidedColumn;
+            dept: number;
+            parent: null | Node;
+        }
 
-                const node = columnTree[i];
-
-                if (node instanceof ProvidedColumnGroup) {
-                    recursePath(node.getChildren(), dept + 1);
-                    result[dept] = node;
-                } else if (node === column) {
-                    found = true;
+        const computePath = (columnTree: IProvidedColumn[]): void => {
+            const stack: Node[] = columnTree.map(column => ({ column, dept: 0, parent: null }));
+            while (stack.length) {
+                const node = stack.pop();
+                if (node) {
+                    if (node.column instanceof ProvidedColumnGroup && node.column.getChildren().length) {
+                        stack.push(...node.column.getChildren().map(column => ({ column, dept: node.dept + 1, parent: node })))
+                    } else if (node.column === column) {
+                        found = true;
+                        let current: Node | null = node;
+                        while (current) {
+                            if (current.column instanceof ProvidedColumnGroup) {
+                                result[current.dept] = current.column;
+                            }
+                            current = current.parent;
+                        }
+                    }
                 }
             }
         };
 
-        recursePath(balancedColumnTree, 0);
+        computePath(balancedColumnTree);
 
         // it's possible we didn't find a path. this happens if the column is generated
         // by the grid (auto-group), in that the definition didn't come from the client. in this case,

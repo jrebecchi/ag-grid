@@ -43,23 +43,34 @@ export class ColumnUtils extends BeanStub {
         const result: ProvidedColumnGroup[] = [];
         let found = false;
 
-        const recursePath = (balancedColumnTree: IProvidedColumn[], dept: number): void => {
-            for (let i = 0; i < balancedColumnTree.length; i++) {
-                if (found) { return; }
-                    // quit the search, so 'result' is kept with the found result
+        interface Node {
+            column: IProvidedColumn;
+            dept: number;
+            parent: null | Node;
+        }
 
-                const node = balancedColumnTree[i];
-                if (node instanceof ProvidedColumnGroup) {
-                    const nextNode = node;
-                    recursePath(nextNode.getChildren(), dept + 1);
-                    result[dept] = node;
-                } else if (node === column) {
-                    found = true;
+        const computePath = (balancedColumnTree: IProvidedColumn[]): void => {
+            const stack: Node[] = balancedColumnTree.map(column => ({ column, dept: 0, parent: null }));
+            while (stack.length) {
+                const node = stack.pop();
+                if (node) {
+                    if (node.column instanceof ProvidedColumnGroup && node.column.getChildren().length) {
+                        stack.push(...node.column.getChildren().map(column => ({ column, dept: node.dept + 1, parent: node })))
+                    } else if (node.column === column) {
+                        found = true;
+                        let current: Node | null = node;
+                        while (current) {
+                            if (current.column instanceof ProvidedColumnGroup) {
+                                result[current.dept] = current.column;
+                            }
+                            current = current.parent;
+                        }
+                    }
                 }
             }
         };
 
-        recursePath(originalBalancedTree, 0);
+        computePath(originalBalancedTree);
 
         // we should always find the path, but in case there is a bug somewhere, returning null
         // will make it fail rather than provide a 'hard to track down' bug
