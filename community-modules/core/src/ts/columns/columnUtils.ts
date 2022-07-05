@@ -7,6 +7,7 @@ import { Bean } from "../context/context";
 import { BeanStub } from "../context/beanStub";
 import { attrToNumber } from "../utils/generic";
 import { ColDef } from "../entities/colDef";
+import { LinkedList } from "../misc/linkedList";
 
 // takes in a list of columns, as specified by the column definitions, and returns column groups
 @Bean('columnUtils')
@@ -50,21 +51,20 @@ export class ColumnUtils extends BeanStub {
         }
 
         const computePath = (balancedColumnTree: IProvidedColumn[]): void => {
-            const stack: Node[] = balancedColumnTree.map(column => ({ column, dept: 0, parent: null }));
-            while (stack.length) {
-                const node = stack.pop();
-                if (node) {
-                    if (node.column instanceof ProvidedColumnGroup && node.column.getChildren().length) {
-                        stack.push(...node.column.getChildren().map(column => ({ column, dept: node.dept + 1, parent: node })))
-                    } else if (node.column === column) {
-                        found = true;
-                        let current: Node | null = node;
-                        while (current) {
-                            if (current.column instanceof ProvidedColumnGroup) {
-                                result[current.dept] = current.column;
-                            }
-                            current = current.parent;
+            const fifo = new LinkedList<Node>()
+            balancedColumnTree.forEach(column => fifo.add({ column, dept: 0, parent: null }));
+            while (!fifo.isEmpty()) {
+                const node = fifo.remove();
+                if (node.column instanceof ProvidedColumnGroup && node.column.getChildren().length) {
+                    node.column.getChildren().forEach(column => fifo.add({ column, dept: node.dept + 1, parent: node }));
+                } else if (node.column === column) {
+                    found = true;
+                    let current: Node | null = node;
+                    while (current) {
+                        if (current.column instanceof ProvidedColumnGroup) {
+                            result[current.dept] = current.column;
                         }
+                        current = current.parent;
                     }
                 }
             }

@@ -8,6 +8,7 @@ import { Bean } from "../context/context";
 import { BeanStub } from "../context/beanStub";
 import { last } from "../utils/array";
 import { exists } from "../utils/generic";
+import { LinkedList } from "../misc/linkedList";
 
 // takes in a list of columns, as specified by the column definitions, and returns column groups
 @Bean('displayedGroupCreator')
@@ -154,12 +155,13 @@ export class DisplayedGroupCreator extends BeanStub {
         }
 
         const computePath = (columnTree: IProvidedColumn[]): void => {
-            const stack: Node[] = columnTree.map(column => ({ column, dept: 0, parent: null }));
-            while (stack.length) {
-                const node = stack.pop();
+            const fifo = new LinkedList<Node>()
+            columnTree.forEach(column => fifo.add({ column, dept: 0, parent: null }));
+            while (!fifo.isEmpty()) {
+                const node = fifo.remove();
                 if (node) {
                     if (node.column instanceof ProvidedColumnGroup && node.column.getChildren().length) {
-                        stack.push(...node.column.getChildren().map(column => ({ column, dept: node.dept + 1, parent: node })))
+                        node.column.getChildren().forEach(column => fifo.add({ column, dept: node.dept + 1, parent: node }));
                     } else if (node.column === column) {
                         found = true;
                         let current: Node | null = node;
